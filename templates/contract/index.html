@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo</title>
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/basic.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.css" rel="stylesheet">
+    <script
+            src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.js"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone-amd-module.min.js"></script>
+    <style>
+        pre {
+            outline: 1px solid #ccc;
+            padding: 5px;
+            margin: 5px;
+        }
+
+        .string {
+            color: green;
+        }
+
+        .number {
+            color: darkorange;
+        }
+
+        .boolean {
+            color: blue;
+        }
+
+        .null {
+            color: magenta;
+        }
+
+        .key {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<div id="dropz" class="dropzone"></div>
+<img src="" id="part1">
+<pre id="p1"></pre>
+<img src="" id="part2">
+<pre id="p2"></pre>
+<script>
+    function syntaxHighlight(json) {
+        if (typeof json != 'string') {
+            json = JSON.stringify(json, undefined, 2);
+        }
+        json = json.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    var dropz = new Dropzone("#dropz", {
+        url: "/contract/upload",
+        /*headers: {
+                'X-CSRFToken': $('meta[name="token"]').attr('content')
+        },*/
+        maxFiles: 1,
+        maxFilesize: 10,
+        acceptedFiles: ".jpg",
+        addRemoveLinks: true,
+        init: function () {
+            this.on("success", function (file, response) {
+                console.log("File " + file.name + "uploaded");
+                console.log(response);
+                $('#part1').attr("src","/static/contract_part1.jpg");
+                $('#part2').attr("src","/static/contract_part2.jpg");
+                $('#p1').html(syntaxHighlight(response['part1_result']));
+                $('#p2').html(syntaxHighlight(response['part2_result']));
+            });
+        }
+    });
+</script>
+</body>
+</html>

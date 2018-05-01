@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo</title>
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/basic.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.css" rel="stylesheet">
+    <script
+            src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.js"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone-amd-module.min.js"></script>
+    <style>
+        pre {
+            outline: 1px solid #ccc;
+            padding: 5px;
+            margin: 5px;
+        }
+
+        .string {
+            color: green;
+        }
+
+        .number {
+            color: darkorange;
+        }
+
+        .boolean {
+            color: blue;
+        }
+
+        .null {
+            color: magenta;
+        }
+
+        .key {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<div id="dropz" class="dropzone"></div>
+<img src="" id="exporter">
+<pre id="pexporter"></pre>
+<img src="" id="details">
+<pre id="pdetails"></pre>
+<img src="" id="consignee">
+<pre id="pconsignee"></pre>
+<img src="" id="notify_party">
+<pre id="pnotify_party"></pre>
+<img src="" id="buyer">
+<pre id="pbuyer"></pre>
+<script>
+    function syntaxHighlight(json) {
+        if (typeof json != 'string') {
+            json = JSON.stringify(json, undefined, 2);
+        }
+        json = json.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    var dropz = new Dropzone("#dropz", {
+        url: "/invoice/upload",
+        /*headers: {
+         'X-CSRFToken': $('meta[name="token"]').attr('content')
+         },*/
+        maxFiles: 1,
+        maxFilesize: 10,
+        acceptedFiles: ".jpg",
+        addRemoveLinks: true,
+        init: function () {
+            this.on("success", function (file, response) {
+                console.log("File " + file.name + "uploaded");
+                console.log(response);
+                $('#exporter').attr("src", "/static/exporter.jpg");
+                $('#details').attr("src", "/static/details.jpg");
+                $('#consignee').attr("src", "/static/consignee.jpg");
+                $('#notify_party').attr("src", "/static/notify_party.jpg");
+                $('#buyer').attr("src", "/static/buyer.jpg");
+                $('#pexporter').html(syntaxHighlight(response['EXPORTER']));
+                $('#pdetails').html(syntaxHighlight(response['details']));
+                $('#pconsignee').html(syntaxHighlight(response['CONSIGNEE']));
+                $('#pnotify_party').html(syntaxHighlight(response['NOTIFY_PARTY']));
+                $('#pbuyer').html(syntaxHighlight(response['BUYER']));
+            });
+        }
+    });
+</script>
+</body>
+</html>
