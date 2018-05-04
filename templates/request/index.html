@@ -83,9 +83,9 @@
             this.on("success", function (file, response) {
                 console.log("File " + file.name + "uploaded");
                 console.log(response);
-                $('#part1').attr("src","/static/part1.jpg");
-                $('#part2').attr("src","/static/part2.jpg");
-                $('#part3').attr("src","/static/part3.jpg");
+                $('#part1').attr("src","/static/request_part1.jpg");
+                $('#part2').attr("src","/static/request_part2.jpg");
+                $('#part3').attr("src","/static/request_part3.jpg");
                 $('#p1').html(syntaxHighlight(response['part1_result']));
                 $('#p2').html(syntaxHighlight(response['part2_result']));
                 $('#p3').html(syntaxHighlight(response['part3_result']));
