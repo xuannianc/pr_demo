@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo</title>
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/basic.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.css" rel="stylesheet">
+    <script
+            src="https://code.jquery.com/jquery-1.12.4.min.js"
+            integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone.min.js"></script>
+    <script src="https://cdn.bootcss.com/dropzone/5.4.0/min/dropzone-amd-module.min.js"></script>
+    <style>
+        pre {
+            outline: 1px solid #ccc;
+            padding: 5px;
+            margin: 5px;
+        }
+
+        .string {
+            color: green;
+        }
+
+        .number {
+            color: darkorange;
+        }
+
+        .boolean {
+            color: blue;
+        }
+
+        .null {
+            color: magenta;
+        }
+
+        .key {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<div id="dropz" class="dropzone"></div>
+<pre id="delivery_address"></pre>
+<pre id="invoice_no"></pre>
+<pre id="invoice_date"></pre>
+<pre id="order_no"></pre>
+<pre id="invoice_address"></pre>
+<pre id="settlement"></pre>
+<pre id="shipment"></pre>
+<pre id="items"></pre>
+<pre id="total_cases"></pre>
+<pre id="total_amount_due"></pre>
+<script>
+    function syntaxHighlight(json) {
+        if (typeof json != 'string') {
+            json = JSON.stringify(json, undefined, 2);
+        }
+        json = json.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'key';
+                } else {
+                    cls = 'string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'boolean';
+            } else if (/null/.test(match)) {
+                cls = 'null';
+            }
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
+    }
+
+    var dropz = new Dropzone("#dropz", {
+        url: "/twoonell/upload",
+        /*headers: {
+         'X-CSRFToken': $('meta[name="token"]').attr('content')
+         },*/
+        maxFiles: 1,
+        maxFilesize: 10,
+        acceptedFiles: ".PDF,.pdf",
+        addRemoveLinks: true,
+        init: function () {
+            this.on("success", function (file, response) {
+                console.log("File " + file.name + "uploaded");
+                console.log(response);
+                $('#delivery_address').html(syntaxHighlight(response['delivery_address']));
+                $('#invoice_no').html(syntaxHighlight(response['invoice_no']));
+                $('#invoice_date').html(syntaxHighlight(response['invoice_date']));
+                $('#order_no').html(syntaxHighlight(response['order_no']));
+                $('#invoice_address').html(syntaxHighlight(response['invoice_address']));
+                $('#settlement').html(syntaxHighlight(response['settlement']));
+                $('#shipment').html(syntaxHighlight(response['shipment']));
+                $('#items').html(syntaxHighlight(response['items']));
+                $('#total_cases').html(syntaxHighlight(response['total_cases']));
+                $('#total_amount_due').html(syntaxHighlight(response['total_amount_due']));
+            });
+        }
+    });
+</script>
+</body>
+</html>

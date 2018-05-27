@@ -17,7 +17,9 @@ from django.conf.urls import url, include
 from django.contrib import admin
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    url(r'^request/', include('request.urls')),
-    url(r'^contract/', include('contract.urls')),
-    url(r'^invoice/', include('invoice.urls')),
+    # url(r'^request/', include('request.urls')),
+    # url(r'^contract/', include('contract.urls')),
+    # url(r'^invoice/', include('invoice.urls')),
+    url(r'^twoonell/', include('twoonell.urls')),
+    url(r'^idf/', include('ldf.urls')),
 ]
