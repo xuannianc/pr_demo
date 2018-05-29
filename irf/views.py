@@ -15,13 +15,14 @@ def index(request):
 
 
 def pdf2img(pdf_filepath, img_filepath):
-    with Image(filename=pdf_filepath, resolution=300) as img:
+    with Image(filename=pdf_filepath + '[0]', resolution=300) as img:
         print('width =', img.width)
         print('height =', img.height)
         print('pages = ', len(img.sequence))
         print('resolution = ', img.resolution)
         with img.convert('jpg') as converted:
             converted.save(filename=img_filepath)
+
 
 # Create your views here.
 @csrf_exempt

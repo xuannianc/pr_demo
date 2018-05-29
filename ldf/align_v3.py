@@ -53,8 +53,8 @@ def align(query_image_path, train_image_path):
         # cv2.imshow('aligned', aligned)
         # cv2.waitKey(0)
         aligned_image = cv2.cvtColor(aligned_gray, cv2.COLOR_GRAY2BGR)
-        media_dir, query_image_name = os.path.split(query_image_path)
-        cv2.imwrite(os.path.join(media_dir, 'aligned_' + query_image_name), aligned_image)
+        # media_dir, query_image_name = os.path.split(query_image_path)
+        # cv2.imwrite(os.path.join(media_dir, 'aligned_' + query_image_name), aligned_image)
         return aligned_image
 
 # align('sh-4.jpg', 'sh-0.jpg')
