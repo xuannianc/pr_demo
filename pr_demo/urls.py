@@ -22,4 +22,5 @@ urlpatterns = [
     # url(r'^invoice/', include('invoice.urls')),
     url(r'^twoonell/', include('twoonell.urls')),
     url(r'^idf/', include('ldf.urls')),
+    url(r'^irf/', include('irf.urls')),
 ]

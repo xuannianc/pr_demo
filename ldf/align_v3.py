@@ -3,18 +3,19 @@
 """
 import cv2
 import numpy as np
+import os
 
 
-def align(query_img, train_img):
+def align(query_image_path, train_image_path):
     # Load the images in gray scale
-    img1 = cv2.imread(query_img, 0)
-    img2 = cv2.imread(train_img, 0)
+    query_image = cv2.imread(query_image_path, 0)
+    train_image = cv2.imread(train_image_path, 0)
 
     # Detect the SIFT key points and compute the descriptors for the two images
     suft = cv2.xfeatures2d.SURF_create(hessianThreshold=3000)
 
-    keyPoints1, descriptors1 = suft.detectAndCompute(img1, None)
-    keyPoints2, descriptors2 = suft.detectAndCompute(img2, None)
+    keyPoints1, descriptors1 = suft.detectAndCompute(query_image, None)
+    keyPoints2, descriptors2 = suft.detectAndCompute(train_image, None)
     print('len of kp1={}'.format(len(keyPoints1)))
     print('len of kp2={}'.format(len(keyPoints2)))
 
@@ -45,15 +46,15 @@ def align(query_img, train_img):
         M, mask = cv2.findHomography(sourcePoints, destinationPoints, method=cv2.RANSAC, ransacReprojThreshold=5.0)
 
         # Apply the perspective transformation to the source image corners
-        h, w = img2.shape
-        aligned_gray = cv2.warpPerspective(img1, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=255)
+        h, w = train_image.shape
+        aligned_gray = cv2.warpPerspective(query_image, M, (w, h), borderMode=cv2.BORDER_CONSTANT, borderValue=255)
         # print(M)
         # cv2.imwrite(aligned_imgpath, aligned)
         # cv2.imshow('aligned', aligned)
-        # cv2.imwrite('aligned_' + query_img, aligned)
         # cv2.waitKey(0)
-        aligned = cv2.cvtColor(aligned_gray,cv2.COLOR_GRAY2BGR)
-        return aligned
-
+        aligned_image = cv2.cvtColor(aligned_gray, cv2.COLOR_GRAY2BGR)
+        media_dir, query_image_name = os.path.split(query_image_path)
+        cv2.imwrite(os.path.join(media_dir, 'aligned_' + query_image_name), aligned_image)
+        return aligned_image
 
 # align('sh-4.jpg', 'sh-0.jpg')

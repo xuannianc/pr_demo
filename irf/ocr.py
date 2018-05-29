@@ -9,17 +9,16 @@ BUFFER_I = 5
 BUFFER_II = 10
 BUFFER_III = 20
 BUFFER_IV = 100
+BUFFER_V = 1000
 
 ITEM_NAMES = [
-    ['收发货人', '进口口岸', '进口日期', '申报日期'],
-    ['消费使用单位', '运输方式', '运输工具名称', '提运单号'],
-    ['申报单位', '监管方式', '征免性质', '备案号'],
-    ['贸易国(地区)', '启运国(地区)', '装货港', '境内目的地'],
+    ['收发货人', '进境口岸', '备案号', '进境日期', '申报日期'],
+    ['消费使用单位', '监管方式', '贸易国（地区）', '启运国（地区）', '境内目的地'],
+    ['申报单位', '运输方式', '运输工具名称', '提运单号'],
     ['许可证号', '成交方式', '运费', '保费', '杂费'],
-    ['合同协议号', '件数', '包装种类', '毛重(千克)', '净重(千克)'],
-    ['集装箱号', '随附单证'],
+    ['件数', '毛重(千克)', '净重(千克)', '随附单证'],
     ['标记唛码及备注'],
-    ['项号', '商品编号', '商品名称、规格型号', '数量及单位', '原产国（地区）', '单价', '总价', '币制', '征免'],
+    ['项号', '商品编号', '商品名称、规格型号', '数量及单位', '原产国（地区）', '单价', '总价', '币制'],
     ['特殊关系确认', '价格影响确认', '与货物有关的特许权使用费支付确认']
 ]
 
@@ -27,8 +26,8 @@ ITEM_NAMES = [
 def extract_text(image, lang='chi_sim', psm=6, oem=1, is_digit=False):
     if is_digit:
         text = pytesseract.image_to_string(image,
-                                           config='--psm {} --oem {} -c tessedit_char_whitelist=0123456789'.format(psm,
-                                                                                                                   oem))
+                                           config='--psm {} --oem {} -c tessedit_char_whitelist=0123456789.'.format(psm,
+                                                                                                                    oem))
     else:
         text = pytesseract.image_to_string(image, lang=lang, config='--psm {} --oem {}'.format(psm, oem))
     return text
@@ -170,24 +169,26 @@ def get_combined_y_v2(image):
     :param image: 要处理的已经二值化取反后的图像
     :return:
     """
+    cv2.imshow('get_combined_y_v2:image', image)
+    cv2.waitKey(0)
     H, W = image.shape
     # 获取所有横线
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (W // 50, 1))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (W // 70, 1))
     heroded = cv2.erode(image, kernel, iterations=1)
     hdilated = cv2.dilate(heroded, kernel, iterations=1)
-    # cv2.imshow('hdilated', hdilated)
-    # cv2.waitKey(0)
+    cv2.imshow('get_combined_y_v2:hdilated', hdilated)
+    cv2.waitKey(0)
     # 处理横线
     # 所有白点的 y 坐标
     all_y = np.where(hdilated == 255)[0]
     all_y_s = pd.Series(all_y)
     # 所有白点的 y 坐标的统计
     y_statistics = all_y_s.value_counts().sort_index()
-    # print(y_statistics)
+    print('y_statistics={}'.format(y_statistics))
     all_combined_y = []
     # 合并紧连的横线
     indexes = y_statistics.index.tolist()
-    print(indexes)
+    print('y_statistics_indexes={}'.format(indexes))
     seq_begin = indexes[0]
     seq_end = indexes[0]
     for idx, i in enumerate(indexes[:-1]):
@@ -200,7 +201,32 @@ def get_combined_y_v2(image):
     seq_end = indexes[-1]
     seq_middle = (seq_begin + seq_end) // 2
     all_combined_y.append(seq_middle)
-    print(all_combined_y)
+    print('all_combined_y_v2={}'.format(all_combined_y))
+    print(len(all_combined_y))
+    # 合并后所有横线的 y 坐标
+    return all_combined_y
+
+
+def get_combined_y_v3(image):
+    hist = cv2.reduce(image, 1, cv2.REDUCE_AVG).reshape(-1)
+    th = BUFFER_IV
+    # print('get_combined_y_v3:hist={}'.format(hist[:150]))
+    H, W = image.shape[:2]
+    indexes = [y for y in range(H - 1) if hist[y] > th]
+    all_combined_y = []
+    seq_begin = indexes[0]
+    seq_end = indexes[0]
+    for idx, i in enumerate(indexes[:-1]):
+        # 不相连 index
+        if indexes[idx + 1] - i > BUFFER_III:
+            seq_end = i
+            seq_middle = (seq_begin + seq_end) // 2
+            all_combined_y.append(seq_middle)
+            seq_begin = indexes[idx + 1]
+    seq_end = indexes[-1]
+    seq_middle = (seq_begin + seq_end) // 2
+    all_combined_y.append(seq_middle)
+    print('all_combined_y_v3={}'.format(all_combined_y))
     print(len(all_combined_y))
     # 合并后所有横线的 y 坐标
     return all_combined_y
@@ -268,25 +294,49 @@ def draw_lines(image, indexes, axis=0):
     cv2.waitKey(0)
 
 
+def scan_second_row(image, row_idx):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    col_names = ITEM_NAMES[row_idx]
+    scan_row_result = {}
+    all_combined_x = get_combined_x(binary)
+    for x in all_combined_x:
+        image[:, x - BUFFER_I: x + BUFFER_I] = 255
+    col_value_images = []
+    for idx, x in enumerate(all_combined_x[:-1]):
+        col_value_image = image[36:, x:all_combined_x[idx + 1]]
+        col_value_image = np.insert(col_value_image, [0] * BUFFER_III, 255, axis=0)
+        col_value_images.append(col_value_image)
+    if len(col_value_images) > 0:
+        concatenated_image = get_concatenated_image(col_value_images)
+        # cv2.imshow('concatenated_image-{}'.format(row_idx), concatenated_image)
+        # cv2.waitKey(0)
+        text = extract_text(concatenated_image)
+        col_values = [col_value for col_value in text.split('\n') if col_value]
+        scan_row_result.update(dict(zip(col_names, col_values)))
+    print('scan_row_result{}={}'.format(row_idx, scan_row_result))
+    return scan_row_result
+
+
 def scan_row_integrally(image, row_idx):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     col_names = ITEM_NAMES[row_idx]
     all_combined_x = get_combined_x(binary)
     for x in all_combined_x:
-        image[:, x - BUFFER_II: x + BUFFER_II] = 255
+        image[:, x - BUFFER_I: x + BUFFER_I] = 255
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     hist = cv2.reduce(binary, 1, cv2.REDUCE_AVG).reshape(-1)
-    th = BUFFER_II
+    th = 25
     H, W = image.shape[:2]
     uppers = [y for y in range(H - 1) if hist[y] <= th and hist[y + 1] > th]
     lowers = [y for y in range(H - 1) if hist[y] > th and hist[y + 1] <= th]
-    # print('uppers{}={}'.format(row_idx, uppers))
-    # print('lowers{}={}'.format(row_idx, lowers))
+    print('uppers{}={}'.format(row_idx, uppers))
+    print('lowers{}={}'.format(row_idx, lowers))
     value_image = image[uppers[1] - BUFFER_II:, :]
-    # draw_lines(image, uppers, axis=1)
-    # draw_lines(image, lowers, axis=1)
+    draw_lines(image, uppers, axis=1)
+    draw_lines(image, lowers, axis=1)
     col_images = []
     for idx, x in enumerate(all_combined_x[:-1]):
         col_images.append(value_image[:, x:all_combined_x[idx + 1]])
@@ -312,8 +362,7 @@ def scan_row_divisionally(image, row_idx):
     binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     all_combined_x = get_combined_x(binary)
     for x in all_combined_x:
-        image[:, x - BUFFER_II: x + BUFFER_II] = 255
-    # draw_lines(image, all_combined_x, axis=0)
+        image[:, x - BUFFER_I: x + BUFFER_I] = 255
     scan_row_result = {}
     col_value_images = []
     col_names = []
@@ -338,15 +387,16 @@ def scan_row_divisionally(image, row_idx):
             # cv2.imshow('col_value_image-{}'.format(idx), col_value_image)
             # cv2.waitKey(0)
         else:
-            scan_row_result[col_name] = ''
-            # col_content = extract_text(col_image)
-            # cleaned_col_content = [line for line in col_content.split('\n') if line]
-            # if len(cleaned_col_content) > 1:
-            #     scan_row_result[col_name] = '\n'.join(cleaned_col_content[1:])
-            # elif len(cleaned_col_content) == 1:
-            #     scan_row_result[col_name] = ''
-            # else:
-            #     print('Error: col{}-{} is empty'.format(row_idx, idx))
+            # cv2.imshow('col_image-{}'.format(idx), col_image)
+            # cv2.waitKey(0)
+            col_content = extract_text(col_image)
+            cleaned_col_content = [line for line in col_content.split('\n') if line]
+            if len(cleaned_col_content) > 1:
+                scan_row_result[col_name] = '\n'.join(cleaned_col_content[1:])
+            elif len(cleaned_col_content) == 1:
+                scan_row_result[col_name] = ''
+            else:
+                print('Error: col{}-{} is empty'.format(row_idx, idx))
     if len(col_value_images) > 0:
         concatenated_image = get_concatenated_image(col_value_images)
         # cv2.imshow('concatenated_image-{}'.format(row_idx), concatenated_image)
@@ -361,20 +411,20 @@ def scan_row_divisionally(image, row_idx):
 def scan_table_item(image, item_idx, all_segment_x):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    col_names = ITEM_NAMES[8]
+    col_names = ITEM_NAMES[6]
     if not all_segment_x:
-        all_segment_x = get_segment_lines(binary, top=8, axis=0)
+        all_segment_x = get_segment_lines(binary, top=9, axis=0)
         # draw_lines(image, all_segment_x, axis=0)
     scan_item_result = {}
     concatenate_col_images = []
     concatenate_col_names = []
-    for idx, x in enumerate(all_segment_x):
-        if idx == len(all_segment_x) - 1:
+    for idx, x in enumerate(all_segment_x[:-1]):
+        if idx == len(all_segment_x) - 2:
             col_image = image[:, x:]
             # cv2.imshow('col{}'.format(idx), col)
             # cv2.waitKey(0)
             col_value = extract_text(col_image)
-            scan_item_result[col_names[idx + 1]] = col_value
+            scan_item_result[col_names[idx]] = col_value
             if len(concatenate_col_images) > 0:
                 concatenated_image = get_concatenated_image(concatenate_col_images)
                 # cv2.imshow('concatenated_image-{}'.format(row_idx), concatenated_image)
@@ -390,48 +440,33 @@ def scan_table_item(image, item_idx, all_segment_x):
             # cv2.imshow('col{}'.format(idx), col)
             # cv2.waitKey(0)
             try:
-                text = extract_text(col_image, psm=10, oem=0, is_digit=True)
-                if text and text == str(item_idx + 1):
-                    scan_item_result[col_names[idx]] = text
+                col_value = extract_text(col_image, psm=7, oem=0, is_digit=True)
+                print('col_value{}-{}={}'.format(item_idx, idx, col_value))
+                if col_value and col_value == str(item_idx + 1) + '.':
+                    scan_item_result[col_names[idx]] = col_value
                 else:
                     return False, None, None
             except Exception as e:
                 print(e)
                 return False, None, None
-        elif idx == 3:
+        elif idx in [1, 5, 6]:
             col_image = image[:, x:all_segment_x[idx + 1]]
             # cv2.imshow('col{}'.format(idx), col)
             # cv2.waitKey(0)
-            col_segment_lines = get_segment_lines(binary[:, x:all_segment_x[idx + 1]], top=4)
-            # draw_lines(col, col_segment_lines)
-            col3_image = col_image[:, col_segment_lines[0]: col_segment_lines[-2]]
-            col3_value = extract_text(col3_image)
-            scan_item_result[col_names[idx]] = col3_value
-            col4_image = col_image[:, col_segment_lines[-2]: col_segment_lines[-1]]
-            col4_value = extract_text(col4_image)
-            scan_item_result[col_names[idx + 1]] = col4_value
+            concatenate_col_images.append(col_image)
+            concatenate_col_names.append(col_names[idx])
         else:
             col_image = image[:, x:all_segment_x[idx + 1]]
             # cv2.imshow('col{}'.format(idx), col)
             # cv2.waitKey(0)
-            if idx in [1, 4, 5]:
-                concatenate_col_images.append(col_image)
-                if idx == 1:
-                    concatenate_col_names.append(col_names[idx])
-                else:
-                    concatenate_col_names.append(col_names[idx + 1])
-            elif idx == 2:
-                col_value = extract_text(col_image)
-                scan_item_result[col_names[idx]] = col_value
-            else:
-                col_value = extract_text(col_image)
-                scan_item_result[col_names[idx + 1]] = col_value
+            col_value = extract_text(col_image)
+            scan_item_result[col_names[idx]] = col_value
 
 
 def scan_table(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-    all_combined_y = get_combined_y_v2(binary)
+    all_combined_y = get_combined_y_v3(binary)
     # draw_lines(image, all_combined_y, axis=1)
     all_combined_x = get_combined_x_v2(binary)
     # draw_lines(image, all_combined_x, axis=0)
@@ -476,12 +511,12 @@ def scan(image):
     image = cv2.GaussianBlur(image, (3, 3), 0)
     # draw_lines(image, all_combined_y, axis=1)
     # 处理表格上面的所有行
-    for row_idx in range(8):
+    for row_idx in range(6):
         row_image = image[all_combined_y[row_idx] + BUFFER_II:all_combined_y[row_idx + 1] - BUFFER_I]
-        if row_idx in [0, 3, 5]:
-            scan_row_result = scan_row_integrally(row_image, row_idx)
-        elif row_idx in [1, 2, 4, 6]:
+        if row_idx in [0, 2, 3, 4]:
             scan_row_result = scan_row_divisionally(row_image, row_idx)
+        elif row_idx == 1:
+            scan_row_result = scan_second_row(row_image, row_idx)
         else:
             row_content = extract_text(row_image)
             cleaned_row_content = [words for words in row_content.split('\n') if words]
@@ -492,10 +527,14 @@ def scan(image):
             scan_row_result = {ITEM_NAMES[row_idx][0]: row_value}
         scan_result['row' + str(row_idx)] = scan_row_result
     # 处理表格
-    table_content = scan_table(image[all_combined_y[9] + BUFFER_II: all_combined_y[10] - BUFFER_III])
+    table_image = image[all_combined_y[7]: all_combined_y[8] - BUFFER_III]
+    # cv2.imshow('table_image',table_image)
+    # cv2.waitKey(0)
+    table_content = scan_table(table_image)
     scan_result['items'] = table_content
     print('scan_result={}'.format(scan_result))
     return scan_result
 
-# image = cv2.imread('aligned_sh-2.jpg')
+
+# image = cv2.imread('irf-sh-3.jpg')
 # scan(image)
